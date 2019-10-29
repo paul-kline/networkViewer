@@ -19,11 +19,11 @@ converts raw 2d array where first row is field names and rest are values
 into objects with first row keys
 */
 function fromArrays(data: any[][]): any[] {
-  const headers = data[0];
+  const headers: string[] = data[0];
   const result = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    const obj = {};
+    const obj: any = {};
     row.forEach((cell, i) => {
       obj[headers[i]] = cell;
     });
@@ -40,8 +40,8 @@ const DEFAULTCONVERSIONS = {
 /*
 meant to convert the question key fields into shorter field names
 */
-function convertObjs(data: Object[], conversions = DEFAULTCONVERSIONS): Object[] {
-  data.forEach(obj => {
+function convertObjs(data: any[], conversions: any = DEFAULTCONVERSIONS): Object[] {
+  data.forEach((obj: any) => {
     for (const key in conversions) {
       if (obj[key]) {
         obj[conversions[key]] = obj[key];
@@ -54,7 +54,7 @@ function convertObjs(data: Object[], conversions = DEFAULTCONVERSIONS): Object[]
 /*
 converts the interests property comma seperated list into an array 
 */
-function convertIntereststoArray(data: Object[]): Object[] {
+function convertIntereststoArray(data: any[]): Object[] {
   const INTERESTSKEY = "interests";
   data.forEach(obj => {
     if (obj[INTERESTSKEY]) {

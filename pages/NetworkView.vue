@@ -1,6 +1,5 @@
 <template>
   <div>
-    Hello from network view
     <Network1></Network1>
   </div>
 </template><script>
