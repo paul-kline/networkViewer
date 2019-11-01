@@ -1,8 +1,15 @@
 <template>
   <div class="VueToNuxtLogo">
     <v-btn v-on:click="fetchClick">Fetch spreadsheet data</v-btn>
-    <v-btn v-on:click="withInterest" v-if="data && data.length > 0">Show Interests</v-btn>
-    <div v-if="data && data.length > 0">
+    <v-btn
+      v-on:click="withInterest"
+      v-if="rawPeople && rawPeople.length > 0"
+    >{{showInsterestNodes? "Hide Interests" : "Show Interests" }}</v-btn>
+    <v-btn
+      v-on:click="communitiesToggle"
+      v-if="rawPeople && rawPeople.length > 0"
+    >{{showCommunitiesNode? "Hide Communities" : "Show Communities" }}</v-btn>
+    <div v-if="rawPeople && rawPeople.length > 0">
       Layout Options
       <div tile color="deep-purple accent-3" single>
         <v-tooltip bottom>
@@ -25,7 +32,7 @@
         </v-tooltip>
         <v-tooltip bottom>
           <template v-slot:activator="{ on }">
-            <v-btn value="left" depressed v-on="on" v-on:click="doLayout('asvdf')">asvdf</v-btn>
+            <v-btn value="left" depressed v-on="on" v-on:click="doLayout('avsdf')">avsdf</v-btn>
           </template>
           <span>organises nodes in a circle and tries to minimise edge crossings as much as possible</span>
         </v-tooltip>
@@ -40,6 +47,12 @@
             <v-btn value="left" depressed v-on="on" v-on:click="doLayout('cise')">cise</v-btn>
           </template>
           <span>creates circular clusters and uses a physics simulation to create distance between the clusters</span>
+        </v-tooltip>
+        <v-tooltip bottom>
+          <template v-slot:activator="{ on }">
+            <v-btn value="left" depressed v-on="on" v-on:click="doLayout('euler')">euler</v-btn>
+          </template>
+          <span>a fast, high-quality force-directed (physics simulation) layout</span>
         </v-tooltip>
       </div>
     </div>
@@ -57,38 +70,32 @@ import Vue from "vue";
 import Component from "vue-class-component";
 import cytoscape, { Core } from "cytoscape";
 import { fetchParsed } from "~/ts/Fetcher";
+import { Person, NodeEsq, EdgeEsq } from "~/ts/Types";
+import "~/ts/layouts";
 import Vuetify from "vuetify";
 Vue.use(Vuetify);
-//@ts-ignore
-import cola from "cytoscape-cola";
-cytoscape.use(cola);
-// https://github.com/iVis-at-Bilkent/cytoscape.js-avsdf
-//@ts-ignore
-import avsdf from "cytoscape-avsdf";
-cytoscape.use(avsdf);
-//https://github.com/cytoscape/cytoscape.js-spread
-//@ts-ignore
-import spread from "cytoscape-spread";
-cytoscape.use(spread);
-
-//github.com/iVis-at-Bilkent/cytoscape.js-cise
-//@ts-ignore
-import cise from "cytoscape-cise";
-cytoscape.use(cise);
 
 // The @Component decorator indicates the class is a Vue component
 @Component({
   // All component options are allowed in here
   template: '<button @click="onClick">Click!</button>'
 })
-export default class MyComponent extends Vue {
-  text: string = "center";
+export default class Network1 extends Vue {
+  currentLayout: string = "circle";
+  showInsterestNodes: boolean = false;
+  showCommunitiesNode: boolean = false;
+  showPeopleNodes: boolean = false;
   // Initial data can be declared as instance properties
   message: string = "Hello!";
   //@ts-ignore
   cy: Core;
-  data: any[] = [];
+  rawPeople: (Person)[] = [];
+  communityNodes: NodeEsq[] = [];
+  communityEdges: EdgeEsq[] = [];
+  interestsNodes: NodeEsq[] = [];
+  interestsEdges: EdgeEsq[] = [];
   interests: string[] = [];
+  communityNames: string[] = [];
   // Component methods can be declared as instance methods
   onClick(): void {
     window.alert(this.message);
@@ -96,8 +103,39 @@ export default class MyComponent extends Vue {
   mounted() {
     console.log("mounted");
     // this.cy = this.mkCy();
+    (window as any).cy = () => this.cy;
   }
-  doLayout(layout: string) {
+  setCommunityEdges(people = this.rawPeople) {
+    const edges: any[] = [];
+    people.forEach(p => {
+      edges.push({
+        data: {
+          id: p.name + p.community,
+          source: p.name,
+          target: p.community
+        }
+      });
+    });
+    this.communityEdges = edges;
+    return edges;
+  }
+  communitiesToggle() {
+    this.showCommunitiesNode = !this.showCommunitiesNode;
+    if (this.showCommunitiesNode) {
+      if (this.communityNodes.length < 1) {
+        this.setCommunityNodes();
+      }
+      this.cy.add(this.communityNodes as any);
+      if (this.communityEdges.length < 1) {
+        this.setCommunityEdges();
+        this.cy.add(this.communityEdges as any[]);
+      }
+    } else {
+      this.cy.$(".community").remove();
+    }
+  }
+  doLayout(layout: string, customOptions: any = {}) {
+    this.currentLayout = layout;
     const options = {
       name: layout,
 
@@ -115,37 +153,21 @@ export default class MyComponent extends Vue {
       stop: undefined, // callback on layoutstop
       concentric: function(node: any) {
         console.log((node._private.classes as Set<string>).has("person"));
-        return (node._private.classes as Set<string>).has("person")
-          ? 1
-          : 100000;
+        const classes = node._private.classes as Set<string>;
+        return classes.has("person") ? 1 : classes.has("interest") ? 500 : 1000;
       },
       transform: function(node: any, position: any) {
         return position;
-      } // transform a given node position. Useful for changing flow direction in discrete layouts
+      }, // transform a given node position. Useful for changing flow direction in discrete layouts
+      ...customOptions
     };
     this.cy.layout(options).start();
   }
-  mkCy(
-    elements = [
-      // list of graph elements to start with
-      {
-        // node a
-        data: { id: "a" }
-      },
-      {
-        // node b
-        data: { id: "b" }
-      },
-      {
-        // edge ab
-        data: { id: "ab", source: "a", target: "b" }
-      }
-    ]
-  ): Core {
+  mkCy(elements = this.rawPeople): Core {
     return cytoscape({
       container: document.getElementById("cy"), // container to render in
 
-      elements: elements,
+      elements: elements as any[],
 
       style: [
         // the stylesheet for the graph
@@ -193,6 +215,24 @@ export default class MyComponent extends Vue {
             color: "white",
             label: "data(id)"
           }
+        },
+        {
+          selector: ".community",
+          style: {
+            shape: "rectangle",
+            width: "label",
+            height: "label",
+            "background-color": "#666",
+            // "background-height": "130%",
+            "text-wrap": "wrap",
+            "text-halign": "center",
+            opacity: 0.5,
+            "text-max-width": "100px",
+            "text-valign": "center",
+            "font-size": "1em",
+            color: "white",
+            label: "data(id)"
+          }
         }
       ],
 
@@ -202,44 +242,106 @@ export default class MyComponent extends Vue {
       }
     });
   }
+  /* fetches people data and creates nodes and shows.
+   */
   async fetchClick() {
     console.log(new Date());
     const d = await fetchParsed();
+    console.log("fetched people:", d);
+    this.rawPeople = d;
     d.forEach(item => {
       item.data = { id: item.name };
       item.classes = ["person"];
       console.log("adding item:", item);
     });
-    this.data = d;
-    this.mkCy(d);
-    // this.cy.add(d);
-    console.log("network recieved:", d);
-    this.cy = this.mkCy(d);
-    this.doLayout("circle");
+    this.showPeopleNodes = true;
+    this.initToPeople();
   }
-  async withInterest() {
-    if (this.data.length < 1) {
-      await this.fetchClick();
-    }
-    this.populateInterests();
-    this.interests.forEach(interest => {
-      this.cy.add({ data: { id: interest }, classes: ["interest"] } as any);
+  initToPeople(layout: string = "circle") {
+    //initialize graph to people.
+    //populates
+    this.cy = this.mkCy();
+    this.doLayout(layout);
+  }
+  setCommunityNames(people: Person[] = this.rawPeople) {
+    console.log("setting community names");
+    const comms: string[] = [];
+    people.forEach(p => {
+      if (!comms.includes(p.community)) {
+        comms.push(p.community);
+      }
     });
+    this.communityNames = comms;
+    console.log(comms);
+  }
+  /* Iniitalizes communityNodes given people is set.
+   */
+  setCommunityNodes(people = this.rawPeople): any[] {
+    if (this.communityNames.length < 1) {
+      this.setCommunityNames();
+    }
+    const nodes: NodeEsq[] = [];
+
+    this.communityNames.forEach(c => {
+      nodes.push({ data: { id: c } });
+    });
+    this.communityNodes = nodes;
+    return nodes;
+  }
+  /*initializes interestsNodes given people is set*/
+  setInterestNodes(interests = this.interests) {
+    if (this.interestsNodes.length > 0) {
+      console.log("interests nodes already set");
+      return;
+    }
+    interests.forEach(interest => {
+      this.interestsNodes.push({
+        data: { id: interest },
+        classes: ["interest"]
+      } as any);
+    });
+  }
+  removeInterestNodes() {
+    this.cy.remove(this.cy.$(".interest"));
+    console.log("remove interest Nodes placeholder");
+  }
+  setInterestsEdges(data = this.rawPeople) {
     //draw edges:
+    if (this.interestsEdges.length > 0) {
+      console.log("interest edges already set. ");
+      return;
+    }
     const edges: any[] = [];
-    this.data.forEach(data => {
-      data.interests.forEach((interest: string) => {
+    console.log("calling setinterest edges with", data);
+    data.forEach(datum => {
+      datum.interests.forEach((interest: string) => {
         edges.push({
           data: {
-            id: data.name + interest,
-            source: data.name,
+            id: datum.name + interest,
+            source: datum.name,
             target: interest
           }
         });
       });
     });
-    console.log("adding edges:", edges);
-    this.cy.add(edges);
+    this.interestsEdges = edges;
+  }
+  async withInterest(data = this.rawPeople) {
+    this.showInsterestNodes = !this.showInsterestNodes;
+    if (!this.showInsterestNodes) {
+      this.removeInterestNodes();
+      return;
+    }
+    if (data.length < 1) {
+      console.log("please fetch data first");
+    }
+    this.populateInterests();
+    this.setInterestNodes(this.interests);
+    this.cy.add(this.interestsNodes as any[]);
+    this.setInterestsEdges();
+    console.log("adding interests edges:", this.interestsEdges);
+    this.cy.add(this.interestsEdges as any[]);
+
     this.cy
       .layout({
         // name: "cola",
@@ -262,19 +364,24 @@ export default class MyComponent extends Vue {
       })
       .start();
   }
-  populateInterests() {
+  populateInterests(data = this.rawPeople) {
     //create interests.
-    if (!this.data) {
+    if (!data) {
       console.log("no data yet");
       return;
     }
-    this.data.forEach(d => {
+    if (this.interests.length > 0) {
+      console.log("interests string list is already populated ");
+      return;
+    }
+    data.forEach(d => {
       d.interests.forEach((interest: string) => {
         if (!this.interests.includes(interest)) {
           this.interests.push(interest);
         }
       });
     });
+    console.log("interests now:", this.interests);
   }
 }
 </script>

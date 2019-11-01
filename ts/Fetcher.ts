@@ -1,3 +1,4 @@
+import { Person } from "./Types";
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbya1pA6RSvSbnvHqC4ccp0LGZAA4x-a9G5ltSW-G0bAhSVzgNnJ/exec";
 const SHEET = "Form Responses 1";
 
@@ -9,9 +10,9 @@ export async function fetchjson(url: string = ENDPOINT, sheet: string = SHEET): 
   console.log("CONVERTED: ", convertIntereststoArray(convertObjs(fromArrays(r2))));
   return r2;
 }
-export async function fetchParsed(url: string = ENDPOINT, sheet: string = SHEET): Promise<any[]> {
+export async function fetchParsed(url: string = ENDPOINT, sheet: string = SHEET): Promise<Person[]> {
   const jsondata = await fetchjson(url, sheet);
-  return convertIntereststoArray(convertObjs(fromArrays(jsondata)));
+  return toPeople(jsondata);
 }
 
 /* 
@@ -40,16 +41,20 @@ const DEFAULTCONVERSIONS = {
 /*
 meant to convert the question key fields into shorter field names
 */
-function convertObjs(data: any[], conversions: any = DEFAULTCONVERSIONS): Object[] {
-  data.forEach((obj: any) => {
-    for (const key in conversions) {
-      if (obj[key]) {
-        obj[conversions[key]] = obj[key];
-        delete obj[key];
-      }
+function convertObjs(data: any[], conversions: any = DEFAULTCONVERSIONS): any[] {
+  return data.map(d => convertObj(d, conversions));
+}
+function convertObj(datum: any, conversions: any = DEFAULTCONVERSIONS) {
+  for (const key in conversions) {
+    if (datum[key]) {
+      datum[conversions[key]] = datum[key];
+      delete datum[key];
     }
-  });
-  return data;
+  }
+  return datum;
+}
+export function toPeople(data: any[]): Person[] {
+  return convertIntereststoArray(convertObjs(fromArrays(data))) as Person[];
 }
 /*
 converts the interests property comma seperated list into an array 
