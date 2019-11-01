@@ -9,6 +9,10 @@
       v-on:click="communitiesToggle"
       v-if="rawPeople && rawPeople.length > 0"
     >{{showCommunitiesNode? "Hide Communities" : "Show Communities" }}</v-btn>
+    <v-btn
+      v-on:click="toggleRDI"
+      v-if="rawPeople && rawPeople.length > 0"
+    >{{showRDI? "Hide RDI" : "Show RDI" }}</v-btn>
     <div v-if="rawPeople && rawPeople.length > 0">
       Layout Options
       <div tile color="deep-purple accent-3" single>
@@ -74,7 +78,7 @@ import { Person, NodeEsq, EdgeEsq } from "~/ts/Types";
 import "~/ts/layouts";
 import Vuetify from "vuetify";
 Vue.use(Vuetify);
-
+import { toEdges } from "~/ts/cytoUtils";
 // The @Component decorator indicates the class is a Vue component
 @Component({
   // All component options are allowed in here
@@ -85,6 +89,7 @@ export default class Network1 extends Vue {
   showInsterestNodes: boolean = false;
   showCommunitiesNode: boolean = false;
   showPeopleNodes: boolean = false;
+  showRDI: boolean = false;
   // Initial data can be declared as instance properties
   message: string = "Hello!";
   //@ts-ignore
@@ -94,6 +99,8 @@ export default class Network1 extends Vue {
   communityEdges: EdgeEsq[] = [];
   interestsNodes: NodeEsq[] = [];
   interestsEdges: EdgeEsq[] = [];
+  rdiNode: NodeEsq;
+  rdiEdges: EdgeEsq[] = [];
   interests: string[] = [];
   communityNames: string[] = [];
   // Component methods can be declared as instance methods
@@ -104,6 +111,38 @@ export default class Network1 extends Vue {
     console.log("mounted");
     // this.cy = this.mkCy();
     (window as any).cy = () => this.cy;
+  }
+  populateRDIEdges() {
+    console.log("populating rdi edges");
+    this.rdiEdges = toEdges(
+      x => x + "RDI",
+      x => x,
+      x => "RDI",
+      this.communityNames,
+      ["community-rdi-edge"]
+    );
+    console.log("rdi edges", this.rdiEdges);
+    this.cy.add(this.rdiEdges as any[]);
+  }
+  showRDINode() {
+    if (!this.rdiNode) {
+      this.rdiNode = { data: { id: "RDI" }, classes: ["rdi"] };
+    }
+    this.cy.add(this.rdiNode as any); // must be before edges;
+    // if (this.rdiEdges.length < 1) {
+    this.populateRDIEdges();
+    // }
+  }
+  hideRDINode() {
+    this.cy.$(".rdi").remove();
+  }
+  toggleRDI() {
+    this.showRDI = !this.showRDI;
+    if (this.showRDI) {
+      this.showRDINode();
+    } else {
+      this.hideRDINode();
+    }
   }
   setCommunityEdges(people = this.rawPeople) {
     const edges: any[] = [];
@@ -154,7 +193,15 @@ export default class Network1 extends Vue {
       concentric: function(node: any) {
         console.log((node._private.classes as Set<string>).has("person"));
         const classes = node._private.classes as Set<string>;
-        return classes.has("person") ? 1 : classes.has("interest") ? 500 : 1000;
+        return classes.has("person")
+          ? 1
+          : classes.has("community")
+          ? 10
+          : classes.has("interest")
+          ? 100
+          : classes.has("rdi")
+          ? 1000
+          : 0;
       },
       transform: function(node: any, position: any) {
         return position;
@@ -206,6 +253,24 @@ export default class Network1 extends Vue {
             height: "label",
             "background-color": "#666",
             // "background-height": "130%",
+            "text-wrap": "wrap",
+            "text-halign": "center",
+            opacity: 0.5,
+            "text-max-width": "100px",
+            "text-valign": "center",
+            "font-size": "1em",
+            color: "white",
+            label: "data(id)"
+          }
+        },
+        {
+          selector: ".rdi",
+          style: {
+            shape: "star",
+            width: "4em", //"label",
+            height: "4em", //"label",
+            "background-color": "#666",
+            "background-height": "130%",
             "text-wrap": "wrap",
             "text-halign": "center",
             opacity: 0.5,
@@ -283,7 +348,7 @@ export default class Network1 extends Vue {
     const nodes: NodeEsq[] = [];
 
     this.communityNames.forEach(c => {
-      nodes.push({ data: { id: c } });
+      nodes.push({ data: { id: c }, classes: ["community"] });
     });
     this.communityNodes = nodes;
     return nodes;
