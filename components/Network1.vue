@@ -1,8 +1,8 @@
 <template>
-  <div class="VueToNuxtLogo">
+  <div class="VueToNuxtLogo hard-left">
     <v-btn v-on:click="fetchClick">Fetch spreadsheet data</v-btn>
     <v-btn
-      v-on:click="withInterest"
+      v-on:click="toggleInterests"
       v-if="rawPeople && rawPeople.length > 0"
     >{{showInsterestNodes? "Hide Interests" : "Show Interests" }}</v-btn>
     <v-btn
@@ -60,6 +60,13 @@
         </v-tooltip>
       </div>
     </div>
+    <v-autocomplete
+      dense
+      v-if="interests.length > 0 "
+      label="Focus Interest"
+      :items="interests"
+      v-on:change="interestSelected"
+    ></v-autocomplete>
     <div>
       zoom:
       <v-btn v-on:click="cy.zoom(cy.zoom() + 0.05)">+</v-btn>
@@ -72,13 +79,13 @@
 <script lang="ts">
 import Vue from "vue";
 import Component from "vue-class-component";
-import cytoscape, { Core } from "cytoscape";
+import cytoscape, { Core, CollectionReturnValue } from "cytoscape";
 import { fetchParsed } from "~/ts/Fetcher";
 import { Person, NodeEsq, EdgeEsq } from "~/ts/Types";
 import "~/ts/layouts";
 import Vuetify from "vuetify";
 Vue.use(Vuetify);
-import { toEdges } from "~/ts/cytoUtils";
+import { ArraytoEdges, toNode, toEdge, toClassName } from "~/ts/cytoUtils";
 // The @Component decorator indicates the class is a Vue component
 @Component({
   // All component options are allowed in here
@@ -92,16 +99,18 @@ export default class Network1 extends Vue {
   showRDI: boolean = false;
   // Initial data can be declared as instance properties
   message: string = "Hello!";
+  rawPeople: (Person)[] = [];
   //@ts-ignore
   cy: Core;
-  rawPeople: (Person)[] = [];
+
   communityNodes: NodeEsq[] = [];
   communityEdges: EdgeEsq[] = [];
   interestsNodes: NodeEsq[] = [];
   interestsEdges: EdgeEsq[] = [];
-  rdiNode: NodeEsq;
+  rdiNode: NodeEsq = toNode("RDI", ["rdi"]);
   rdiEdges: EdgeEsq[] = [];
   interests: string[] = [];
+  focusedElements: any = null;
   communityNames: string[] = [];
   // Component methods can be declared as instance methods
   onClick(): void {
@@ -112,29 +121,56 @@ export default class Network1 extends Vue {
     // this.cy = this.mkCy();
     (window as any).cy = () => this.cy;
   }
+  interestSelected(x: string) {
+    console.log("new selection:", x);
+    //clear last selection
+    console.log("removing old focused");
+    //@ts-ignore
+    this.cy.$(".focused").removeClass("focused");
+    if (x == "None") {
+      console.log("None selected: nothing to do");
+      return;
+    }
+
+    console.log("selecting:", "." + toClassName(x));
+    const selection = this.cy.nodes("." + toClassName(x));
+
+    //@ts-ignore
+    const fl = this.cy.$().floydWarshall();
+    for (let i = 0; i < selection.length - 1; i++) {
+      for (let j = i + 1; j < selection.length; j++) {
+        const path: CollectionReturnValue = fl.path(selection[i], selection[j]);
+        // console.log(path);
+        path.addClass("focused");
+      }
+    }
+  }
   populateRDIEdges() {
+    if (this.rdiEdges.length > 0) {
+      console.log("rdi edges already populated: aborting");
+      return;
+    }
     console.log("populating rdi edges");
-    this.rdiEdges = toEdges(
+    this.rdiEdges = ArraytoEdges(
       x => x + "RDI",
       x => x,
       x => "RDI",
       this.communityNames,
-      ["community-rdi-edge"]
+      ["rdi-edge"]
     );
     console.log("rdi edges", this.rdiEdges);
     this.cy.add(this.rdiEdges as any[]);
   }
   showRDINode() {
-    if (!this.rdiNode) {
-      this.rdiNode = { data: { id: "RDI" }, classes: ["rdi"] };
-    }
     this.cy.add(this.rdiNode as any); // must be before edges;
-    // if (this.rdiEdges.length < 1) {
-    this.populateRDIEdges();
-    // }
+    if (this.rdiEdges.length < 1) {
+      this.populateRDIEdges();
+    }
+    this.cy.add(this.rdiEdges as any[]);
   }
   hideRDINode() {
     this.cy.$(".rdi").remove();
+    this.cy.$(".rdi-edge").remove();
   }
   toggleRDI() {
     this.showRDI = !this.showRDI;
@@ -147,13 +183,9 @@ export default class Network1 extends Vue {
   setCommunityEdges(people = this.rawPeople) {
     const edges: any[] = [];
     people.forEach(p => {
-      edges.push({
-        data: {
-          id: p.name + p.community,
-          source: p.name,
-          target: p.community
-        }
-      });
+      edges.push(
+        toEdge(p.name + p.community, p.name, p.community, ["community-edge"])
+      );
     });
     this.communityEdges = edges;
     return edges;
@@ -167,13 +199,19 @@ export default class Network1 extends Vue {
       this.cy.add(this.communityNodes as any);
       if (this.communityEdges.length < 1) {
         this.setCommunityEdges();
-        this.cy.add(this.communityEdges as any[]);
       }
+      this.cy.add(this.communityEdges as any[]);
     } else {
       this.cy.$(".community").remove();
+      this.cy.$(".community-edge").remove();
     }
   }
-  doLayout(layout: string, customOptions: any = {}) {
+  doLayout(layout: string, customOptions: any = {}, duration: number = 1000) {
+    if (layout == "euler") {
+      //there is an infinite loop thanks to programmer if any node
+      // has identical locations.
+      this.doLayout("circle", null, 0);
+    }
     this.currentLayout = layout;
     const options = {
       name: layout,
@@ -182,7 +220,7 @@ export default class Network1 extends Vue {
       padding: 30, // fit padding
       boundingBox: undefined, // constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
       animate: true, // whether to transition the node positions
-      animationDuration: 1000, // duration of animation in ms if enabled
+      animationDuration: duration, // duration of animation in ms if enabled
       animationEasing: undefined, // easing of animation if enabled
       //@ts-ignore
       animateFilter: function(node, i) {
@@ -298,6 +336,14 @@ export default class Network1 extends Vue {
             color: "white",
             label: "data(id)"
           }
+        },
+        {
+          selector: ".focused",
+          style: {
+            "border-width": "0.2em",
+            "border-color": "yellow",
+            "line-color": "yellow"
+          }
         }
       ],
 
@@ -307,26 +353,33 @@ export default class Network1 extends Vue {
       }
     });
   }
+  /** adds optional fields to make valid node objects */
+  nodifyPeople(people = this.rawPeople): Person[] {
+    people.forEach(p => {
+      p.data = { id: p.name };
+      p.classes = ["person", ...p.interests.map(i => toClassName(i))];
+    });
+    return people;
+  }
   /* fetches people data and creates nodes and shows.
    */
   async fetchClick() {
-    console.log(new Date());
     const d = await fetchParsed();
     console.log("fetched people:", d);
     this.rawPeople = d;
-    d.forEach(item => {
-      item.data = { id: item.name };
-      item.classes = ["person"];
-      console.log("adding item:", item);
-    });
+    this.nodifyPeople();
     this.showPeopleNodes = true;
-    this.initToPeople();
+    this.initGraphToPeople();
+    this.populateInterests();
   }
-  initToPeople(layout: string = "circle") {
+  initGraphToPeople(layout: string = this.currentLayout) {
     //initialize graph to people.
     //populates
     this.cy = this.mkCy();
     this.doLayout(layout);
+  }
+  layoutHook() {
+    this.doLayout(this.currentLayout);
   }
   setCommunityNames(people: Person[] = this.rawPeople) {
     console.log("setting community names");
@@ -368,6 +421,7 @@ export default class Network1 extends Vue {
   }
   removeInterestNodes() {
     this.cy.remove(this.cy.$(".interest"));
+    this.cy.remove(this.cy.$(".interest-edge"));
     console.log("remove interest Nodes placeholder");
   }
   setInterestsEdges(data = this.rawPeople) {
@@ -380,54 +434,31 @@ export default class Network1 extends Vue {
     console.log("calling setinterest edges with", data);
     data.forEach(datum => {
       datum.interests.forEach((interest: string) => {
-        edges.push({
-          data: {
-            id: datum.name + interest,
-            source: datum.name,
-            target: interest
-          }
-        });
+        edges.push(
+          toEdge(datum.name + interest, datum.name, interest, ["interest-edge"])
+        );
       });
     });
     this.interestsEdges = edges;
   }
-  async withInterest(data = this.rawPeople) {
-    this.showInsterestNodes = !this.showInsterestNodes;
-    if (!this.showInsterestNodes) {
-      this.removeInterestNodes();
-      return;
-    }
-    if (data.length < 1) {
-      console.log("please fetch data first");
-    }
+  addInterestNodes() {
     this.populateInterests();
+
     this.setInterestNodes(this.interests);
     this.cy.add(this.interestsNodes as any[]);
     this.setInterestsEdges();
     console.log("adding interests edges:", this.interestsEdges);
     this.cy.add(this.interestsEdges as any[]);
-
-    this.cy
-      .layout({
-        // name: "cola",
-        name: "avsdf",
-
-        fit: true, // whether to fit to viewport
-        padding: 30, // fit padding
-        boundingBox: undefined, // constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
-        animate: true, // whether to transition the node positions
-        animationDuration: 1000, // duration of animation in ms if enabled
-        animationEasing: undefined, // easing of animation if enabled
-        // animateFilter: function(node: any, i: number) {
-        //   return true;
-        // }, // a function that determines whether the node should be animated.  All nodes animated by default on animate enabled.  Non-animated nodes are positioned immediately when the layout starts
-        ready: undefined, // callback on layoutready
-        stop: undefined // callback on layoutstop
-        // transform: function(node, position) {
-        //   return position;
-        // } // transform a given node position. Useful for changing flow direction in discrete layouts
-      })
-      .start();
+    this.layoutHook();
+  }
+  async toggleInterests() {
+    this.showInsterestNodes = !this.showInsterestNodes;
+    if (!this.showInsterestNodes) {
+      this.removeInterestNodes();
+      return;
+    } else {
+      this.addInterestNodes();
+    }
   }
   populateInterests(data = this.rawPeople) {
     //create interests.
@@ -439,6 +470,7 @@ export default class Network1 extends Vue {
       console.log("interests string list is already populated ");
       return;
     }
+    this.interests.push("None");
     data.forEach(d => {
       d.interests.forEach((interest: string) => {
         if (!this.interests.includes(interest)) {
@@ -454,9 +486,13 @@ export default class Network1 extends Vue {
 <style >
 #cy {
   width: 90vw;
-  height: 80vh;
+  height: 85vh;
   display: block;
   border: 1px;
   border-style: solid;
+}
+.hard-lefter {
+  position: absolute;
+  left: 10px;
 }
 </style>

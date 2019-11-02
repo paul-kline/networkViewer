@@ -1,9 +1,19 @@
 import { Person } from "./Types";
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbya1pA6RSvSbnvHqC4ccp0LGZAA4x-a9G5ltSW-G0bAhSVzgNnJ/exec";
-const SHEET = "Form Responses 1";
+import url from "url";
+const query = getParams();
+const ENDPOINT =
+  (query && (query.endpoint as string)) ||
+  "https://script.google.com/macros/s/AKfycbya1pA6RSvSbnvHqC4ccp0LGZAA4x-a9G5ltSW-G0bAhSVzgNnJ/exec";
+const SHEET = (query && (query.sheet as string)) || "Form Responses 1";
 
+function getParams() {
+  if (window && window.location && window.location.href) {
+    return url.parse(window.location.href, true).query;
+  }
+  return null;
+}
 export async function fetchjson(url: string = ENDPOINT, sheet: string = SHEET): Promise<any> {
-  const r1 = await fetch(url);
+  const r1 = await fetch(url + "?name=" + sheet);
   const r2 = await r1.json();
   console.log("fetch result", r2);
   console.log("tobojs: ", fromArrays(r2));
@@ -11,6 +21,7 @@ export async function fetchjson(url: string = ENDPOINT, sheet: string = SHEET): 
   return r2;
 }
 export async function fetchParsed(url: string = ENDPOINT, sheet: string = SHEET): Promise<Person[]> {
+  console.log("fetching sheet", sheet, query);
   const jsondata = await fetchjson(url, sheet);
   return toPeople(jsondata);
 }
@@ -63,7 +74,9 @@ function convertIntereststoArray(data: any[]): Object[] {
   const INTERESTSKEY = "interests";
   data.forEach(obj => {
     if (obj[INTERESTSKEY]) {
-      obj[INTERESTSKEY] = obj[INTERESTSKEY].split(",");
+      obj[INTERESTSKEY] = obj[INTERESTSKEY].split(",").map((x: string) => x.trim());
+    } else {
+      obj[INTERESTSKEY] = [];
     }
   });
   return data;
