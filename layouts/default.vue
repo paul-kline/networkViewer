@@ -7,7 +7,7 @@
     </v-content>
 
     <v-footer :fixed="fixed" app>
-      <span>&copy; 2019</span>
+      <span>&copy; 2019 PaulKlineLabs</span>
     </v-footer>
   </v-app>
 </template>

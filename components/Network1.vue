@@ -13,53 +13,7 @@
       v-on:click="toggleRDI"
       v-if="rawPeople && rawPeople.length > 0"
     >{{showRDI? "Hide RDI" : "Show RDI" }}</v-btn>
-    <div v-if="rawPeople && rawPeople.length > 0">
-      Layout Options
-      <div tile color="deep-purple accent-3" single>
-        <v-tooltip bottom>
-          <template v-slot:activator="{ on }">
-            <v-btn value="left" depressed v-on="on" v-on:click="doLayout('circle')">circle</v-btn>
-          </template>
-          <span>Circular</span>
-        </v-tooltip>
-        <v-tooltip bottom>
-          <template v-slot:activator="{ on }">
-            <v-btn value="left" depressed v-on="on" v-on:click="doLayout('concentric')">concentric</v-btn>
-          </template>
-          <span>Interests in the middle</span>
-        </v-tooltip>
-        <v-tooltip bottom>
-          <template v-slot:activator="{ on }">
-            <v-btn value="left" depressed v-on="on" v-on:click="doLayout('cola')">cola</v-btn>
-          </template>
-          <span>physics simulation layout</span>
-        </v-tooltip>
-        <v-tooltip bottom>
-          <template v-slot:activator="{ on }">
-            <v-btn value="left" depressed v-on="on" v-on:click="doLayout('avsdf')">avsdf</v-btn>
-          </template>
-          <span>organises nodes in a circle and tries to minimise edge crossings as much as possible</span>
-        </v-tooltip>
-        <v-tooltip bottom>
-          <template v-slot:activator="{ on }">
-            <v-btn value="left" depressed v-on="on" v-on:click="doLayout('spread')">spread</v-btn>
-          </template>
-          <span>tries to use all the viewport space</span>
-        </v-tooltip>
-        <v-tooltip bottom>
-          <template v-slot:activator="{ on }">
-            <v-btn value="left" depressed v-on="on" v-on:click="doLayout('cise')">cise</v-btn>
-          </template>
-          <span>creates circular clusters and uses a physics simulation to create distance between the clusters</span>
-        </v-tooltip>
-        <v-tooltip bottom>
-          <template v-slot:activator="{ on }">
-            <v-btn value="left" depressed v-on="on" v-on:click="doLayout('euler')">euler</v-btn>
-          </template>
-          <span>a fast, high-quality force-directed (physics simulation) layout</span>
-        </v-tooltip>
-      </div>
-    </div>
+
     <v-autocomplete
       dense
       v-if="interests.length > 0 "
@@ -67,12 +21,70 @@
       :items="interests"
       v-on:change="interestSelected"
     ></v-autocomplete>
-    <div>
-      zoom:
-      <v-btn v-on:click="cy.zoom(cy.zoom() + 0.05)">+</v-btn>
-      <v-btn v-on:click="cy.zoom(cy.zoom() - 0.05)">-</v-btn>
+
+    <div class="d-flex flex-row">
+      <div v-if="rawPeople && rawPeople.length > 0" class="d-flex flex-column">
+        <div class="d-flex flex-column">
+          zoom:
+          <v-btn v-on:click="cy.zoom(cy.zoom() + 0.05)">+</v-btn>
+          <v-btn v-on:click="cy.zoom(cy.zoom() - 0.05)">-</v-btn>
+        </div>Layout Options
+        <v-item-group
+          v-model="layoutButton"
+          tile
+          color="deep-purple accent-3"
+          single
+          class="d-flex flex-column"
+        >
+          <v-item :color="active ? 'primary' : ''">
+            <v-tooltip bottom>
+              <template v-slot:activator="{ on }">
+                <v-btn value="left" depressed v-on="on" v-on:click="doLayout('circle')">circle</v-btn>
+              </template>
+              <span>Circular</span>
+            </v-tooltip>
+          </v-item>
+
+          <v-tooltip bottom>
+            <template v-slot:activator="{ on }">
+              <v-btn value="left" depressed v-on="on" v-on:click="doLayout('concentric')">concentric</v-btn>
+            </template>
+            <span>Interests in the middle</span>
+          </v-tooltip>
+          <v-tooltip bottom>
+            <template v-slot:activator="{ on }">
+              <v-btn value="left" depressed v-on="on" v-on:click="doLayout('cola')">cola</v-btn>
+            </template>
+            <span>physics simulation layout</span>
+          </v-tooltip>
+          <v-tooltip bottom>
+            <template v-slot:activator="{ on }">
+              <v-btn value="left" depressed v-on="on" v-on:click="doLayout('avsdf')">avsdf</v-btn>
+            </template>
+            <span>organises nodes in a circle and tries to minimise edge crossings as much as possible</span>
+          </v-tooltip>
+          <v-tooltip bottom>
+            <template v-slot:activator="{ on }">
+              <v-btn value="left" depressed v-on="on" v-on:click="doLayout('spread')">spread</v-btn>
+            </template>
+            <span>tries to use all the viewport space</span>
+          </v-tooltip>
+          <v-tooltip bottom>
+            <template v-slot:activator="{ on }">
+              <v-btn value="left" depressed v-on="on" v-on:click="doLayout('cise')">cise</v-btn>
+            </template>
+            <span>creates circular clusters and uses a physics simulation to create distance between the clusters</span>
+          </v-tooltip>
+          <v-tooltip bottom>
+            <template v-slot:activator="{ on }">
+              <v-btn value="left" depressed v-on="on" v-on:click="doLayout('euler')">euler</v-btn>
+            </template>
+            <span>a fast, high-quality force-directed (physics simulation) layout</span>
+          </v-tooltip>
+        </v-item-group>
+      </div>
+      <div id="cy"></div>
     </div>
-    <div id="cy"></div>
   </div>
 </template>
 
@@ -102,7 +114,7 @@ export default class Network1 extends Vue {
   rawPeople: (Person)[] = [];
   //@ts-ignore
   cy: Core;
-
+  layoutButton: any = null;
   communityNodes: NodeEsq[] = [];
   communityEdges: EdgeEsq[] = [];
   interestsNodes: NodeEsq[] = [];
@@ -179,6 +191,7 @@ export default class Network1 extends Vue {
     } else {
       this.hideRDINode();
     }
+    this.layoutHook();
   }
   setCommunityEdges(people = this.rawPeople) {
     const edges: any[] = [];
@@ -205,6 +218,9 @@ export default class Network1 extends Vue {
       this.cy.$(".community").remove();
       this.cy.$(".community-edge").remove();
     }
+    setTimeout(() => {
+      this.layoutHook();
+    }, 200);
   }
   doLayout(layout: string, customOptions: any = {}, duration: number = 1000) {
     if (layout == "euler") {
@@ -377,6 +393,7 @@ export default class Network1 extends Vue {
     //populates
     this.cy = this.mkCy();
     this.doLayout(layout);
+    this.currentLayout = "cola";
   }
   layoutHook() {
     this.doLayout(this.currentLayout);
@@ -413,6 +430,7 @@ export default class Network1 extends Vue {
       return;
     }
     interests.forEach(interest => {
+      if (interest.toLowerCase() == "none") return;
       this.interestsNodes.push({
         data: { id: interest },
         classes: ["interest"]
@@ -455,10 +473,10 @@ export default class Network1 extends Vue {
     this.showInsterestNodes = !this.showInsterestNodes;
     if (!this.showInsterestNodes) {
       this.removeInterestNodes();
-      return;
     } else {
       this.addInterestNodes();
     }
+    this.layoutHook();
   }
   populateInterests(data = this.rawPeople) {
     //create interests.
