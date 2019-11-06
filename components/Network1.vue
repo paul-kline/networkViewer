@@ -1,19 +1,21 @@
 <template>
-  <div class="VueToNuxtLogo hard-left">
-    <v-btn v-on:click="fetchClick">Fetch spreadsheet data</v-btn>
-    <v-btn
-      v-on:click="toggleInterests"
-      v-if="rawPeople && rawPeople.length > 0"
-    >{{showInsterestNodes? "Hide Interests" : "Show Interests" }}</v-btn>
-    <v-btn
-      v-on:click="communitiesToggle"
-      v-if="rawPeople && rawPeople.length > 0"
-    >{{showCommunitiesNode? "Hide Communities" : "Show Communities" }}</v-btn>
-    <v-btn
-      v-on:click="toggleRDI"
-      v-if="rawPeople && rawPeople.length > 0"
-    >{{showRDI? "Hide RDI" : "Show RDI" }}</v-btn>
-
+  <div class="hard-left">
+    <div class="top-bar">
+      <v-btn v-on:click="fetchClick">Fetch spreadsheet data</v-btn>
+      <v-btn
+        v-on:click="toggleInterests"
+        v-if="rawPeople && rawPeople.length > 0"
+      >{{showInsterestNodes? "Hide Interests" : "Show Interests" }}</v-btn>
+      <v-btn
+        v-on:click="communitiesToggle"
+        v-if="rawPeople && rawPeople.length > 0"
+      >{{showCommunitiesNode? "Hide Communities" : "Show Communities" }}</v-btn>
+      <v-btn
+        v-on:click="toggleRDI"
+        v-if="rawPeople && rawPeople.length > 0"
+      >{{showRDI? "Hide RDI" : "Show RDI" }}</v-btn>
+      <nuxt-link to="/Config">Configuration</nuxt-link>
+    </div>
     <v-autocomplete
       dense
       v-if="interests.length > 0 "
@@ -36,14 +38,12 @@
           single
           class="d-flex flex-column"
         >
-          <v-item :color="active ? 'primary' : ''">
-            <v-tooltip bottom>
-              <template v-slot:activator="{ on }">
-                <v-btn value="left" depressed v-on="on" v-on:click="doLayout('circle')">circle</v-btn>
-              </template>
-              <span>Circular</span>
-            </v-tooltip>
-          </v-item>
+          <v-tooltip bottom>
+            <template v-slot:activator="{ on }">
+              <v-btn value="left" depressed v-on="on" v-on:click="doLayout('circle')">circle</v-btn>
+            </template>
+            <span>Circular</span>
+          </v-tooltip>
 
           <v-tooltip bottom>
             <template v-slot:activator="{ on }">
@@ -95,8 +95,7 @@ import cytoscape, { Core, CollectionReturnValue } from "cytoscape";
 import { fetchParsed } from "~/ts/Fetcher";
 import { Person, NodeEsq, EdgeEsq } from "~/ts/Types";
 import "~/ts/layouts";
-import Vuetify from "vuetify";
-Vue.use(Vuetify);
+
 import { ArraytoEdges, toNode, toEdge, toClassName } from "~/ts/cytoUtils";
 // The @Component decorator indicates the class is a Vue component
 @Component({
@@ -321,18 +320,18 @@ export default class Network1 extends Vue {
           selector: ".rdi",
           style: {
             shape: "star",
-            width: "4em", //"label",
-            height: "4em", //"label",
+            width: "6em", //"label",
+            height: "6em", //"label",
             "background-color": "#666",
             "background-height": "130%",
             "text-wrap": "wrap",
             "text-halign": "center",
             opacity: 0.5,
-            "text-max-width": "100px",
+            "text-max-width": "40px",
             "text-valign": "center",
             "font-size": "1em",
             color: "white",
-            label: "data(id)"
+            label: "The Mission"
           }
         },
         {

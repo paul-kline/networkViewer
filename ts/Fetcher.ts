@@ -6,7 +6,7 @@ const ENDPOINT =
   "https://script.google.com/macros/s/AKfycbya1pA6RSvSbnvHqC4ccp0LGZAA4x-a9G5ltSW-G0bAhSVzgNnJ/exec";
 const SHEET = (query && (query.sheet as string)) || "Form Responses 1";
 
-function getParams() {
+export function getParams() {
   if (window && window.location && window.location.href) {
     return url.parse(window.location.href, true).query;
   }
