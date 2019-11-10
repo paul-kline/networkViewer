@@ -24,20 +24,21 @@
       v-on:change="interestSelected"
     ></v-autocomplete>
 
-    <div class="d-flex flex-row">
-      <div v-if="rawPeople && rawPeople.length > 0" class="d-flex flex-column">
-        <div class="d-flex flex-column">
+    <div class="d-flex column-on-portrait">
+      <div v-if="rawPeople && rawPeople.length > 0" class="d-flex flex-row flex-wrap">
+        <div class="d-flex row-on-portrait">
           zoom:
           <v-btn v-on:click="cy.zoom(cy.zoom() + 0.05)">+</v-btn>
           <v-btn v-on:click="cy.zoom(cy.zoom() - 0.05)">-</v-btn>
-        </div>Layout Options
+        </div>
         <v-item-group
           v-model="layoutButton"
           tile
           color="deep-purple accent-3"
           single
-          class="d-flex flex-column"
+          class="d-flex row-on-portrait flex-wrap"
         >
+          Layout Options
           <v-tooltip bottom>
             <template v-slot:activator="{ on }">
               <v-btn value="left" depressed v-on="on" v-on:click="doLayout('circle')">circle</v-btn>
@@ -518,5 +519,19 @@ export default class Network1 extends Vue {
 .hard-lefter {
   position: absolute;
   left: 10px;
+}
+@media (orientation: landscape) {
+  .row-on-portrait {
+    flex-direction: column !important;
+  }
+}
+
+@media (orientation: portrait) {
+  .row-on-portrait {
+    flex-direction: row !important;
+  }
+  .column-on-portrait {
+    flex-direction: column !important;
+  }
 }
 </style>
