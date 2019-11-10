@@ -1,5 +1,7 @@
 import { Person } from "./Types";
 import url from "url";
+import Configuration from "~/ts/Configuration";
+// const config = Configuration.getConfig();
 const query = getParams();
 const ENDPOINT =
   (query && (query.endpoint as string)) ||
@@ -13,12 +15,29 @@ export function getParams() {
   return null;
 }
 export async function fetchjson(url: string = ENDPOINT, sheet: string = SHEET): Promise<any> {
+  const config = Configuration.getConfig();
   const r1 = await fetch(url + "?name=" + sheet);
   const r2 = await r1.json();
   console.log("fetch result", r2);
   console.log("tobojs: ", fromArrays(r2));
-  console.log("CONVERTED: ", convertIntereststoArray(convertObjs(fromArrays(r2))));
+  const conversions = mkConversions(config);
+  console.log("CONVERTED: ", convertIntereststoArray(convertObjs(fromArrays(r2), conversions)));
   return r2;
+}
+function mkConversions(config: Configuration) {
+  const r: any = {};
+  //name questions:
+  config.nameTranslations.value.forEach(q => {
+    r[q] = "name";
+  });
+  //interests question.
+  config.interestsTranslations.value.forEach(q => {
+    r[q] = "interests";
+  });
+  //community question.
+  config.communityTranslations.value.forEach(q => {
+    r[q] = "community";
+  });
 }
 export async function fetchParsed(url: string = ENDPOINT, sheet: string = SHEET): Promise<Person[]> {
   console.log("fetching sheet", sheet, query);
@@ -66,6 +85,15 @@ function convertObj(datum: any, conversions: any = DEFAULTCONVERSIONS) {
 }
 export function toPeople(data: any[]): Person[] {
   return convertIntereststoArray(convertObjs(fromArrays(data))) as Person[];
+}
+function conversion<T extends any>(obj: T, keys: string[], replaceWith: string): T {
+  keys.forEach(k => {
+    if (obj[k]) {
+      obj[replaceWith] = obj[k];
+      delete obj[k];
+    }
+  });
+  return obj;
 }
 /*
 converts the interests property comma seperated list into an array 

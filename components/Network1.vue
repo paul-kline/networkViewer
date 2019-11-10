@@ -4,7 +4,7 @@
       <v-btn v-on:click="fetchClick">Fetch spreadsheet data</v-btn>
       <v-btn
         v-on:click="toggleInterests"
-        v-if="rawPeople && rawPeople.length > 0"
+        v-if="config && config.showInterests.value && rawPeople && rawPeople.length > 0"
       >{{showInsterestNodes? "Hide Interests" : "Show Interests" }}</v-btn>
       <v-btn
         v-on:click="communitiesToggle"
@@ -95,7 +95,7 @@ import cytoscape, { Core, CollectionReturnValue } from "cytoscape";
 import { fetchParsed } from "~/ts/Fetcher";
 import { Person, NodeEsq, EdgeEsq } from "~/ts/Types";
 import "~/ts/layouts";
-
+import Configuration from "~/ts/Configuration";
 import { ArraytoEdges, toNode, toEdge, toClassName } from "~/ts/cytoUtils";
 // The @Component decorator indicates the class is a Vue component
 @Component({
@@ -103,6 +103,7 @@ import { ArraytoEdges, toNode, toEdge, toClassName } from "~/ts/cytoUtils";
   template: '<button @click="onClick">Click!</button>'
 })
 export default class Network1 extends Vue {
+  config = Configuration.getConfig();
   currentLayout: string = "circle";
   showInsterestNodes: boolean = false;
   showCommunitiesNode: boolean = false;
@@ -379,7 +380,10 @@ export default class Network1 extends Vue {
   /* fetches people data and creates nodes and shows.
    */
   async fetchClick() {
-    const d = await fetchParsed();
+    const d = await fetchParsed(
+      this.config.endpoint.value,
+      this.config.sheet.value
+    );
     console.log("fetched people:", d);
     this.rawPeople = d;
     this.nodifyPeople();
@@ -391,11 +395,14 @@ export default class Network1 extends Vue {
     //initialize graph to people.
     //populates
     this.cy = this.mkCy();
+    this.cy.userZoomingEnabled(this.config.allowUserZoom.value);
     this.doLayout(layout);
     this.currentLayout = "cola";
   }
   layoutHook() {
-    this.doLayout(this.currentLayout);
+    if (this.config.autoReformat.value) {
+      this.doLayout(this.currentLayout);
+    }
   }
   setCommunityNames(people: Person[] = this.rawPeople) {
     console.log("setting community names");
